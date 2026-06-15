@@ -84,6 +84,8 @@ pub struct NewsItem {
     pub date: String,
     pub image_url: Option<String>,
     pub action_url: Option<String>,
+    #[serde(default)]
+    pub pinned: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

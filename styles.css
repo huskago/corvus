@@ -602,6 +602,10 @@ body {
     line-height: 1.7;
 }
 
+.news-pin {
+    font-size: 11px;
+}
+
 .btn-settings-link {
     padding: 8px 14px;
     border-radius: 8px;

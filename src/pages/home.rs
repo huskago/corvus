@@ -352,9 +352,13 @@ fn NewsCard(item: NewsItem) -> impl IntoView {
     };
     let date_str = item.date.get(..10).unwrap_or(&item.date).to_string();
 
+    let pinned = item.pinned;
     view! {
         <div class="news-item">
-            <div class="news-item-title">{item.title}</div>
+            <div class="news-item-title">
+                {if pinned { view! { <span class="news-pin">"📌 "</span> }.into_any() } else { view! { <span /> }.into_any() }}
+                {item.title}
+            </div>
             <div class="news-item-meta">
                 <span class=badge_class>{badge_label}</span>
                 <span>{date_str}</span>
