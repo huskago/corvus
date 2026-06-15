@@ -52,7 +52,7 @@ pub fn Sidebar() -> impl IntoView {
 
             <div class="sidebar-spacer" />
 
-            <
+            <A
                 href="/profile"
                 attr:class=move || if on_profile() {
                     "sidebar-avatar-btn active"
