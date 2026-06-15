@@ -162,10 +162,10 @@ async fn add_offline_account(username: String) -> Result<models::AuthResult, Str
 fn build_updater(app: &tauri::AppHandle) -> Result<tauri_plugin_updater::Updater, String> {
     use tauri_plugin_updater::UpdaterExt;
     if let Some(url) = &build_config::get().server.updates_url {
-        let endpoint: tauri_plugin_updater::UpdaterEndpoint =
-            url.parse().map_err(|e| format!("invalid updates_url: {e}"))?;
+        let endpoint: url::Url = url.parse().map_err(|e| format!("invalid updates_url: {e}"))?;
         app.updater_builder()
             .endpoints(vec![endpoint])
+            .map_err(|e| e.to_string())?
             .build()
             .map_err(|e| e.to_string())
     } else {

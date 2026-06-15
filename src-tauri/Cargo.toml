@@ -31,7 +31,7 @@ tar = "0.4"
 sha1 = "0.11"
 md5 = "0.8"
 url = "2"
-toml = "0.8"
+toml = "1"
 
 tauri-plugin-autostart = "2"
 
