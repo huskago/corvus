@@ -197,6 +197,25 @@ pub fn HomePage() -> impl IntoView {
                                     >
                                         {move || if ctx.is_launching.get() { "LAUNCHING…" } else { "PLAY" }}
                                     </button>
+
+                                    {if let Some(entry) = instance.changelog.first() {
+                                        let version = entry.version.clone();
+                                        let notes = entry.notes.clone();
+                                        view! {
+                                            <div class="changelog-preview">
+                                                <div class="changelog-preview-title">
+                                                    "What's new in v" {version}
+                                                </div>
+                                                <ul class="changelog-preview-list">
+                                                    {notes.iter().map(|n| view! {
+                                                        <li>{n.clone()}</li>
+                                                    }).collect_view()}
+                                                </ul>
+                                            </div>
+                                        }.into_any()
+                                    } else {
+                                        view! { <span /> }.into_any()
+                                    }}
                                 }
                             })}
                         </Show>

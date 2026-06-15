@@ -577,6 +577,31 @@ body {
     cursor: not-allowed;
 }
 
+.changelog-preview {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 11px;
+}
+
+.changelog-preview-title {
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 5px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.changelog-preview-list {
+    margin: 0;
+    padding-left: 16px;
+    color: var(--text-muted);
+    line-height: 1.7;
+}
+
 .btn-settings-link {
     padding: 8px 14px;
     border-radius: 8px;
