@@ -1,0 +1,21 @@
+# Copy this file to launcher.toml and fill in your own values.
+# Also update src-tauri/tauri.conf.json: productName, identifier, window title.
+# Also update src-tauri/icons/ with your own icons.
+[branding]
+name = "MyLauncher"
+
+[server]
+instances_url = "https://example.com/instances.json"
+news_url      = "https://example.com/news.json"
+
+# Update updater endpoints and signing pubkey in src-tauri/tauri.conf.json
+# under plugins > updater > endpoints / pubkey.
+
+# Register your own Azure AD app: https://portal.azure.com
+# Required scopes: XboxLive.signin XboxLive.offline_access
+[auth]
+
+microsoft_client_id = "your-azure-app-client-id"
+
+# Set to false to require Microsoft authentication (no cracked accounts).
+allow_offline = true
