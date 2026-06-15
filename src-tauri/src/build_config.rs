@@ -18,6 +18,7 @@ pub struct Branding {
 pub struct Server {
     pub instances_url: String,
     pub news_url: String,
+    pub updates_url: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

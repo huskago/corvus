@@ -2,6 +2,14 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 1.2.0), must match src-tauri/Cargo.toml'
+        required: false
+      release_notes:
+        description: 'Release notes shown in the launcher'
+        required: false
+        default: ''
 
 jobs:
   release:
@@ -13,12 +21,20 @@ jobs:
         include:
           - platform: windows-latest
             args: ''
+            tauri_target: ''
+            platform_id: windows-x86_64
           - platform: ubuntu-22.04
             args: ''
+            tauri_target: ''
+            platform_id: linux-x86_64
           - platform: macos-14
             args: '--target aarch64-apple-darwin'
+            tauri_target: aarch64-apple-darwin
+            platform_id: darwin-aarch64
           - platform: macos-13
             args: '--target x86_64-apple-darwin'
+            tauri_target: x86_64-apple-darwin
+            platform_id: darwin-x86_64
 
     runs-on: ${{ matrix.platform }}
 
@@ -58,6 +74,7 @@ jobs:
           LAUNCHER_TOML: ${{ secrets.LAUNCHER_TOML }}
 
       - name: Build and release
+        id: tauri
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -69,3 +86,57 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      - name: Upload to corvus-server
+        if: ${{ secrets.CORVUS_SERVER_URL != '' }}
+        shell: bash
+        run: |
+          set -e
+          SERVER="${{ secrets.CORVUS_SERVER_URL }}"
+          PLATFORM_ID="${{ matrix.platform_id }}"
+          TARGET="${{ matrix.tauri_target }}"
+
+          # Resolve bundle dir
+          if [ -n "$TARGET" ]; then
+            BUNDLE_BASE="src-tauri/target/$TARGET/release/bundle"
+          else
+            BUNDLE_BASE="src-tauri/target/release/bundle"
+          fi
+
+          # Find the updater artifact (.zip or .tar.gz)
+          BINARY=$(find "$BUNDLE_BASE" -type f \( -name "*.nsis.zip" -o -name "*.AppImage.tar.gz" -o -name "*.app.tar.gz" \) | head -1)
+          if [ -z "$BINARY" ]; then
+            echo "No updater artifact found in $BUNDLE_BASE, skipping upload"
+            exit 0
+          fi
+          SIG_FILE="${BINARY}.sig"
+          if [ ! -f "$SIG_FILE" ]; then
+            echo "No .sig file found for $BINARY, skipping upload"
+            exit 0
+          fi
+
+          # Get version from Cargo.toml
+          VERSION=$(grep '^version' src-tauri/Cargo.toml | head -1 | sed 's/version = "//;s/"//')
+          NOTES="${{ github.event.inputs.release_notes }}"
+          PUB_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # Authenticate
+          TOKEN=$(curl -sf -X POST "$SERVER/api/auth/login" \
+            -H "Content-Type: application/json" \
+            -d "{\"username\":\"admin\",\"password\":\"${{ secrets.CORVUS_ADMIN_PASSWORD }}\"}" \
+            | grep -o '"token":"[^"]*"' | sed 's/"token":"//;s/"//')
+
+          # Update release metadata (only first runner to finish sets version/notes)
+          curl -sf -X PUT "$SERVER/api/admin/updates" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"version\":\"$VERSION\",\"notes\":\"$NOTES\",\"pubDate\":\"$PUB_DATE\"}" || true
+
+          # Upload binary + signature
+          SIG=$(cat "$SIG_FILE")
+          curl -sf -X POST "$SERVER/api/admin/updates/$PLATFORM_ID/upload" \
+            -H "Authorization: Bearer $TOKEN" \
+            -F "file=@$BINARY" \
+            -F "signature=$SIG"
+
+          echo "Uploaded $PLATFORM_ID to $SERVER"

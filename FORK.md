@@ -19,6 +19,8 @@ name = "MyLauncher"
 [server]
 instances_url = "https://example.com/instances.json"
 news_url      = "https://example.com/news.json"
+# Optional: if using corvus-server, point here to serve launcher updates from it.
+# updates_url = "https://example.com/updates/latest.json"
 
 [auth]
 microsoft_client_id = "your-azure-app-client-id"
@@ -69,6 +71,8 @@ Then add these secrets to your GitHub repository (**Settings → Secrets and var
 | `LAUNCHER_TOML` | Full content of your `launcher.toml` |
 | `TAURI_SIGNING_PRIVATE_KEY` | Content of your signing private key file |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Password for the private key (can be empty) |
+| `CORVUS_SERVER_URL` | *(Optional)* Your corvus-server URL — enables automatic upload of built binaries to your server |
+| `CORVUS_ADMIN_PASSWORD` | *(Optional)* corvus-server admin password, required if `CORVUS_SERVER_URL` is set |
 
 To publish a release:
 

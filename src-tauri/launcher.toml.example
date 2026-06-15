@@ -7,8 +7,11 @@ name = "MyLauncher"
 [server]
 instances_url = "https://example.com/instances.json"
 news_url      = "https://example.com/news.json"
+# Optional: serve launcher updates via corvus-server instead of GitHub releases.
+# When set, the auto-updater checks this URL instead of the GitHub endpoint.
+# updates_url = "https://example.com/updates/latest.json"
 
-# Update updater endpoints and signing pubkey in src-tauri/tauri.conf.json
+# Updater signing pubkey and GitHub endpoint are in src-tauri/tauri.conf.json
 # under plugins > updater > endpoints / pubkey.
 
 # Register your own Azure AD app: https://portal.azure.com

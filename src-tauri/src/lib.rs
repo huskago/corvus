@@ -159,10 +159,23 @@ async fn add_offline_account(username: String) -> Result<models::AuthResult, Str
     auth::offline::add_offline_account(&username).await
 }
 
+fn build_updater(app: &tauri::AppHandle) -> Result<tauri_plugin_updater::Updater, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    if let Some(url) = &build_config::get().server.updates_url {
+        let endpoint: tauri_plugin_updater::UpdaterEndpoint =
+            url.parse().map_err(|e| format!("invalid updates_url: {e}"))?;
+        app.updater_builder()
+            .endpoints(vec![endpoint])
+            .build()
+            .map_err(|e| e.to_string())
+    } else {
+        app.updater().map_err(|e| e.to_string())
+    }
+}
+
 #[tauri::command]
 async fn check_launcher_update(app: tauri::AppHandle) -> Result<Option<models::UpdateInfo>, String> {
-    use tauri_plugin_updater::UpdaterExt;
-    let updater = app.updater().map_err(|e| e.to_string())?;
+    let updater = build_updater(&app)?;
     match updater.check().await.map_err(|e| e.to_string())? {
         Some(update) => Ok(Some(models::UpdateInfo {
             version: update.version,
@@ -174,10 +187,11 @@ async fn check_launcher_update(app: tauri::AppHandle) -> Result<Option<models::U
 
 #[tauri::command]
 async fn download_and_install_update(app: tauri::AppHandle) -> Result<(), String> {
-    use tauri_plugin_updater::UpdaterExt;
-    let updater = app.updater().map_err(|e| e.to_string())?;
+    let updater = build_updater(&app)?;
     if let Some(update) = updater.check().await.map_err(|e| e.to_string())? {
-        update.download_and_install(|_, _| {}, || {}).await
+        update
+            .download_and_install(|_, _| {}, || {})
+            .await
             .map_err(|e| e.to_string())?;
         app.restart();
     }
