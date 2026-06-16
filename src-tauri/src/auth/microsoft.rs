@@ -135,8 +135,6 @@ pub async fn poll_until_done(
     interval: u32,
     state: &AppStateInner,
 ) -> Result<AuthResult, String> {
-    state.auth_poll_cancelled.store(false, Ordering::Relaxed);
-
     loop {
         tokio::time::sleep(std::time::Duration::from_secs(interval as u64)).await;
 

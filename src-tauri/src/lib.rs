@@ -124,6 +124,8 @@ async fn remove_account(uuid: String) -> Result<(), String> {
 async fn start_device_code_flow(
     app_state: tauri::State<'_, state::AppState>,
 ) -> Result<models::DeviceCodeInfo, String> {
+    use std::sync::atomic::Ordering;
+    app_state.auth_poll_cancelled.store(false, Ordering::SeqCst);
     auth::microsoft::start_device_code_flow(&app_state.http_client).await
 }
 
