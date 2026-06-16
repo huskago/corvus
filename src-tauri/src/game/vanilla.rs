@@ -150,8 +150,7 @@ pub async fn download_verified(
     use tokio::io::AsyncWriteExt;
 
     if url.is_empty() || !url.starts_with("http") {
-        eprintln!("[SKIP] download_verified, invalid URL: {:?} → {:?}", url, dest);
-        return Ok(());
+        return Err(format!("invalid download URL '{url}'"));
     }
 
     if file_is_valid(dest, expected_sha1).await {
@@ -180,6 +179,12 @@ pub async fn download_verified(
 
     while let Some(chunk) = response.chunk().await.map_err(|e| format!("{e}"))? {
         file.write_all(&chunk).await.map_err(|e| format!("{e}"))?;
+    }
+    drop(file);
+
+    if !expected_sha1.is_empty() && !file_is_valid(dest, expected_sha1).await {
+        tokio::fs::remove_file(dest).await.ok();
+        return Err(format!("SHA1 mismatch after download: {url|}"));
     }
 
     Ok(())
@@ -357,7 +362,7 @@ async fn download_counted(
     use tokio::io::AsyncWriteExt;
 
     if url.is_empty() || !url.starts_with("http") {
-        return Ok(0);
+        return Err(format!("invalid download URL '{url}'"));
     }
 
     if file_is_valid(dest, expected_sha1).await {
@@ -388,6 +393,12 @@ async fn download_counted(
     while let Some(chunk) = response.chunk().await.map_err(|e| format!("{e}"))? {
         total += chunk.len() as u64;
         file.write_all(&chunk).await.map_err(|e| format!("{e}"))?;
+    }
+    drop(file);
+
+    if !expected_sha1.is_empty() && !file_is_valid(dest, expected_sha1).await {
+        tokio::fs::remove_file(dest).await.ok();
+        return Err(format!("SHA1 mismatch after download: {url|}"));
     }
 
     Ok(total)
