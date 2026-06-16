@@ -184,7 +184,7 @@ pub async fn download_verified(
 
     if !expected_sha1.is_empty() && !file_is_valid(dest, expected_sha1).await {
         tokio::fs::remove_file(dest).await.ok();
-        return Err(format!("SHA1 mismatch after download: {url|}"));
+        return Err(format!("SHA1 mismatch after download: {url}"));
     }
 
     Ok(())
@@ -398,7 +398,7 @@ async fn download_counted(
 
     if !expected_sha1.is_empty() && !file_is_valid(dest, expected_sha1).await {
         tokio::fs::remove_file(dest).await.ok();
-        return Err(format!("SHA1 mismatch after download: {url|}"));
+        return Err(format!("SHA1 mismatch after download: {url}"));
     }
 
     Ok(total)
