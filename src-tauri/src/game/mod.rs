@@ -64,32 +64,34 @@ pub fn emit_error(app: &AppHandle, message: impl Into<String>) {
 
 pub async fn launch(game_dir_name: &str, app: AppHandle, state: &AppState) -> Result<(), String> {
     {
-        let running = state.running_instance.lock().await;
-        if let Some(name) = running.as_deref() {
-            return Err(format!("Instance '{}' is already running", name));
+        let mut running = state.running_instance.lock().await;
+        if running.is_some() {
+            return Err(format!(
+                "Instance '{}' is already running",
+                running.as_deref().unwrap_or("unknown")
+            ));
         }
+        *running = Some(game_dir_name.to_string());
     }
 
-    let instances = instances::get_instances(state).await?;
-    let instance = instances
-        .into_iter()
-        .find(|i| i.game_dir_name == game_dir_name)
-        .ok_or_else(|| format!("Instance '{}' not found", game_dir_name))?;
+    let result = async {
+        let instances = instances::get_instances(state).await?;
+        let instance = instances
+            .into_iter()
+            .find(|i| i.game_dir_name == game_dir_name)
+            .ok_or_else(|| format!("Instance '{}' not found", game_dir_name))?;
 
-    if instance.maintenance {
-        return Err("This service is currently undergoing maintenance.".to_string());
+        if instance.maintenance {
+            return Err("This service is currently undergoing maintenance.".to_string());
+        }
+
+        do_launch(game_dir_name, &app, state, &instance).await
     }
+    .await;
 
     {
         let mut running = state.running_instance.lock().await;
         *running = Some(game_dir_name.to_string());
-    }
-
-    let result = do_launch(game_dir_name, &app, state, &instance).await;
-
-    {
-        let mut running = state.running_instance.lock().await;
-        *running = None;
     }
 
     result
