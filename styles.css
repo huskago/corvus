@@ -295,12 +295,46 @@ body {
     min-width: 0;
 }
 
+.home-right-outer {
+    display: flex;
+    align-items: stretch;
+    flex-shrink: 0;
+}
+
+.news-toggle {
+    width: 18px;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-right: none;
+    border-radius: 6px 0 0 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    padding: 0;
+    transition: background 0.2s, color 0.2s;
+}
+
+.news-toggle:hover {
+    background: rgba(255, 255, 255, 0.09);
+    color: var(--text);
+}
+
 .home-right {
     width: 260px;
     min-width: 260px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    transition: width 0.3s ease, min-width 0.3s ease;
+}
+
+.home-right.collapsed {
+    width: 0;
+    min-width: 0;
 }
 
 /* Instance cards */

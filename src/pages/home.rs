@@ -12,6 +12,9 @@ pub fn HomePage() -> impl IntoView {
     let ctx = use_ctx();
     let news = RwSignal::new(Vec::<NewsItem>::new());
     let error = RwSignal::new(String::new());
+    let instances_loaded = RwSignal::new(false);
+    let news_loaded = RwSignal::new(false);
+    let news_visible = RwSignal::new(true);
 
     Effect::new(move |_| {
         spawn_local(async move {
@@ -26,9 +29,11 @@ pub fn HomePage() -> impl IntoView {
                 }
                 Err(e) => error.set(e),
             }
+            instances_loaded.set(true);
             if let Ok(items) = tauri::invoke0::<Vec<NewsItem>>("fetch_news").await {
                 news.set(items);
             }
+            news_loaded.set(true);
         });
     });
 
@@ -82,9 +87,13 @@ pub fn HomePage() -> impl IntoView {
                     <div class="instances-section">
                         <div class="section-label">"Instances"</div>
                         <Show
-                            when=move || !ctx.instances.get().is_empty()
+                            when=move || instances_loaded.get()
                             fallback=|| view! { <div class="loading">"Loading…"</div> }
                         >
+                            <Show
+                                when=move || !ctx.instances.get().is_empty()
+                                fallback=|| view! { <div class="loading">"No instances."</div> }
+                            >
                             <div class="instances-scroll">
                                 <For
                                     each=move || ctx.instances.get()
@@ -107,6 +116,7 @@ pub fn HomePage() -> impl IntoView {
                                     }
                                 />
                             </div>
+                            </Show>
                         </Show>
                         <Show when=move || !error.get().is_empty()>
                             <p style="color:var(--danger);font-size:12px;margin-top:8px">
@@ -222,31 +232,43 @@ pub fn HomePage() -> impl IntoView {
                     </div>
                 </div>
 
-                <div class="home-right">
-                    <div class="news-panel">
-                        <div class="news-panel-header">
-                            <span>"📰"</span>
-                            <span class="news-panel-title">"NEWS"</span>
-                            <button class="news-refresh" on:click=refresh_news title="Refresh">
-                                "↻"
-                            </button>
-                        </div>
-                        <div class="news-list">
-                            <Show
-                                when=move || !news.get().is_empty()
-                                fallback=|| view! {
-                                    <div class="loading">"Loading…"</div>
-                                }
-                            >
-                                <For
-                                    each=move || news.get()
-                                    key=|n| n.id.clone()
-                                    children=|item| view! { <NewsCard item=item /> }
-                                />
-                            </Show>
+                <Show when=move || !news_loaded.get() || !news.get().is_empty()>
+                    <div class="home-right-outer">
+                        <button
+                            class="news-toggle"
+                            on:click=move |_| news_visible.update(|v| *v = !*v)
+                            title=move || if news_visible.get() { "Hide news" } else { "Show news" }
+                        >
+                            {move || if news_visible.get() { "›" } else { "‹" }}
+                        </button>
+                        <div
+                            class="home-right"
+                            class:collapsed=move || !news_visible.get()
+                        >
+                            <div class="news-panel">
+                                <div class="news-panel-header">
+                                    <span>"📰"</span>
+                                    <span class="news-panel-title">"NEWS"</span>
+                                    <button class="news-refresh" on:click=refresh_news title="Refresh">
+                                        "↻"
+                                    </button>
+                                </div>
+                                <div class="news-list">
+                                    <Show
+                                        when=move || news_loaded.get()
+                                        fallback=|| view! { <div class="loading">"Loading…"</div> }
+                                    >
+                                        <For
+                                            each=move || news.get()
+                                            key=|n| n.id.clone()
+                                            children=|item| view! { <NewsCard item=item /> }
+                                        />
+                                    </Show>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </Show>
             </div>
 
             <Show when=move || {
