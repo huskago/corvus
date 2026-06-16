@@ -94,3 +94,39 @@ pub async fn get_launch_credentials() -> Option<(AuthMode, String, String, Strin
         active.mc_access_token,
     ))
 }
+
+pub async fn ensure_credentials_valid(client: &reqwest::Client) -> Result<(crate::models::AuthMode, String, String, String), String> {
+    let accounts = load_stored_accounts().await;
+    let active = accounts
+        .into_iter()
+        .find(|a| a.is_active)
+        .ok_or_else(|| "No active accounts. Log in via the Profile page.".to_string())?;
+
+    if matches!(active.auth_mode, crate::models::AuthMode::Microsoft) {
+        let now_ms = crate::history::current_time_ms();
+        if active.mc_access_token_expiry > 0 && now_ms >= active.mc_access_token_expiry {
+            match microsoft::refresh_token(client, &active.uuid).await {
+                Ok(true) => {
+                    let updated = load_stored_accounts().await;
+                    let a = updated
+                        .into_iter()
+                        .find(|a| a.uuid == active.uuid)
+                        .ok_or_else(|| "Account not found after refresh".to_string())?;
+                    return Ok((a.auth_mode, a.username, a.uuid, a.mc_access_token));
+                }
+                _ => {
+                    return Err(
+                        "Session expired. Please log in again via the Profile page.".to_string(),
+                    )
+                }
+            }
+        }
+    }
+
+    Ok((
+        active.auth_mode,
+        active.username,
+        active.uuid,
+        active.mc_access_token,
+    ))
+}

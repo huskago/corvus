@@ -159,11 +159,9 @@ async fn do_launch(
     )
     .await?;
 
-    let (account_name, account_uuid, mc_access_token) =
-        match crate::auth::get_launch_credentials().await {
-            Some((_mode, name, uuid, token)) => (name, uuid, token),
-            None => return Err("No active accounts. Log in via the Profile page.".to_string()),
-        };
+    emit_status(app, "Verifying session...");
+    let (_mode, account_name, account_uuid, mc_access_token) =
+        crate::auth::ensure_credentials_valid(&state.http_client).await?;
 
     let start_time = history::current_time_ms();
 
