@@ -2,7 +2,7 @@ pub mod microsoft;
 pub mod offline;
 
 use crate::config::base_dir;
-use crate::models::{AccountInfo, AuthMode, StoredAccount};
+use crate::models::{AccountInfo, StoredAccount};
 
 const ACCOUNTS_FILE: &str = "accounts.json";
 
@@ -82,17 +82,6 @@ pub async fn remove_account(uuid: &str) -> Result<(), String> {
         accounts[0].is_active = true;
     }
     save_stored_accounts(&accounts).await
-}
-
-pub async fn get_launch_credentials() -> Option<(AuthMode, String, String, String)> {
-    let accounts = load_stored_accounts().await;
-    let active = accounts.into_iter().find(|a| a.is_active)?;
-    Some((
-        active.auth_mode,
-        active.username,
-        active.uuid,
-        active.mc_access_token,
-    ))
 }
 
 pub async fn ensure_credentials_valid(client: &reqwest::Client) -> Result<(crate::models::AuthMode, String, String, String), String> {
