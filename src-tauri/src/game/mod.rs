@@ -91,7 +91,7 @@ pub async fn launch(game_dir_name: &str, app: AppHandle, state: &AppState) -> Re
 
     {
         let mut running = state.running_instance.lock().await;
-        *running = Some(game_dir_name.to_string());
+        *running = None;
     }
 
     result
