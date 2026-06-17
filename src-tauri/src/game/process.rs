@@ -171,7 +171,8 @@ pub async fn spawn_minecraft(params: LaunchParams<'_>, app: &AppHandle) -> Resul
         .current_dir(params.instance_dir)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
-
+    #[cfg(target_os = "windows")]
+    command.creation_flags(0x08000000); // CREATE_NO_WINDOW
     let mut child = command
         .spawn()
         .map_err(|e| format!("Unable to launch Java ({}): {e}", params.java_path))?;
