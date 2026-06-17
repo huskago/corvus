@@ -3,7 +3,7 @@ pub mod mods;
 pub mod process;
 pub mod vanilla;
 
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::models::InstanceInfo;
 use crate::{config, history, instances, state::AppState};
@@ -107,6 +107,7 @@ async fn do_launch(
 ) -> Result<(), String> {
     let instance_dir = config::instance_dir(game_dir_name);
     let local_config = config::read_instance_config(game_dir_name).await?;
+    let launcher_config = crate::config::read_launcher_config().await?;
 
     emit_status(
         app,
@@ -167,7 +168,37 @@ async fn do_launch(
 
     let start_time = history::current_time_ms();
 
-    process::spawn_minecraft(
+    let _discord: Option<crate::discord::DiscordSession> =
+        if launcher_config.discord_rpc {
+            if let Some(ref id) = crate::build_config::get().branding.discord_client_id {
+                use std::time::{SystemTime, UNIX_EPOCH};
+                let start_ts = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs() as i64;
+                let loader_label = format!("{} · {}", instance.loader, instance.mc_version);
+                match crate::discord::start(id, &loader_label, &instance.name, start_ts) {
+                    Ok(session) => Some(session),
+                    Err(e) => {
+                        emit_log(app, format!("Discord RPC unavailable: {e}"));
+                        None
+                    }
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+    let window = app.get_webview_window("main");
+    if !launcher_config.keep_launcher_open {
+        if let Some(w) = &window {
+            w.hide().ok();
+        }
+    }
+
+    let mc_result = process::spawn_minecraft(
         process::LaunchParams {
             java_path: &java_path,
             instance_dir: &instance_dir,
@@ -186,7 +217,18 @@ async fn do_launch(
         app,
         &state.kill_requested,
     )
-    .await?;
+    .await;
+
+    if !launcher_config.keep_launcher_open {
+        if let Some(w) = &window {
+            w.show().ok();
+        }
+    }
+
+    // _discord is dropped here, clears Discord activity automatically
+    drop(_discord);
+
+    mc_result?;
 
     history::record_session(
         game_dir_name,

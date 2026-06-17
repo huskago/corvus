@@ -37,6 +37,19 @@ pub enum ModLoader {
     Quilt,
 }
 
+impl std::fmt::Display for ModLoader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            ModLoader::Vanilla => "Vanilla",
+            ModLoader::Fabric => "Fabric",
+            ModLoader::Forge => "Forge",
+            ModLoader::NeoForge => "NeoForge",
+            ModLoader::Quilt => "Quilt",
+        };
+        f.write_str(s)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstanceManifest {
@@ -142,7 +155,7 @@ pub struct DeviceCodeInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct LauncherConfig {
     pub theme: Theme,
     pub keep_launcher_open: bool,
