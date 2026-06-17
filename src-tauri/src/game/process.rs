@@ -23,7 +23,11 @@ pub struct LaunchParams<'a> {
     pub local_config: &'a LocalInstanceConfig,
 }
 
-pub async fn spawn_minecraft(params: LaunchParams<'_>, app: &AppHandle) -> Result<(), String> {
+pub async fn spawn_minecraft(
+    params: LaunchParams<'_>,
+    app: &AppHandle,
+    kill_flag: &std::sync::atomic::AtomicBool,
+) -> Result<(), String> {
     let libs_dir = params.instance_dir.join("libraries");
     let assets_dir = params.instance_dir.join("assets");
     let natives_dir = params
@@ -202,25 +206,34 @@ pub async fn spawn_minecraft(params: LaunchParams<'_>, app: &AppHandle) -> Resul
         });
     }
 
-    let status = child
-        .wait()
-        .await
-        .map_err(|e| format!("Java process timeout error: {e}"))?;
-
-    if !status.success() {
-        // Give the stderr reader a moment to drain remaining output
-        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-        let captured = stderr_lines.lock().await;
-        let last_lines: Vec<&str> = captured.iter().take(15).map(|s| s.as_str()).collect();
-        let code = status.code().unwrap_or(-1);
-        return Err(format!(
-            "Java exited with code {code}:\n{}",
-            if last_lines.is_empty() {
-                "(no output captured)".to_string()
-            } else {
-                last_lines.join("\n")
+    loop {
+        if kill_flag.load(std::sync::atomic::Ordering::Relaxed) {
+            child.kill().await.ok();
+            child.wait().await.ok();
+            emit_status(app, "Stopped.");
+            return Ok(());
+        }
+        match child.try_wait().map_err(|e| format!("Java process error: {e}"))? {
+            Some(status) => {
+                if !status.success() {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+                    let captured = stderr_lines.lock().await;
+                    let last_lines: Vec<&str> =
+                        captured.iter().take(15).map(|s| s.as_str()).collect();
+                    let code = status.code().unwrap_or(-1);
+                    return Err(format!(
+                        "Java exited with code {code}:\n{}",
+                        if last_lines.is_empty() {
+                            "(no output captured)".to_string()
+                        } else {
+                            last_lines.join("\n")
+                        }
+                    ));
+                }
+                break;
             }
-        ));
+            None => tokio::time::sleep(tokio::time::Duration::from_millis(100)).await,
+        }
     }
 
     Ok(())

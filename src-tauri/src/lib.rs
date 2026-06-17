@@ -216,6 +216,13 @@ fn disable_autostart(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn kill_instance(state: tauri::State<'_, state::AppState>) -> Result<(), String> {
+    use std::sync::atomic::Ordering;
+    state.kill_requested.store(true, Ordering::SeqCst);
+    Ok(())
+}
+
+#[tauri::command]
 async fn launch_instance(
     game_dir_name: String,
     app_handle: tauri::AppHandle,
@@ -253,6 +260,7 @@ pub fn run() {
             detect_java,
             download_java,
             launch_instance,
+            kill_instance,
             get_play_history,
             get_accounts,
             get_active_account,

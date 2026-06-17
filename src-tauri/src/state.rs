@@ -38,6 +38,7 @@ pub struct AppStateInner {
     pub instances_cache: Mutex<InstancesCache>,
     pub running_instance: Mutex<Option<String>>,
     pub auth_poll_cancelled: std::sync::atomic::AtomicBool,
+    pub kill_requested: std::sync::atomic::AtomicBool,
 }
 
 #[derive(Clone)]
@@ -51,6 +52,7 @@ impl AppState {
             instances_cache: Mutex::new(InstancesCache::new()),
             running_instance: Mutex::new(None),
             auth_poll_cancelled: std::sync::atomic::AtomicBool::new(false),
+            kill_requested: std::sync::atomic::AtomicBool::new(false),
         }))
     }
 }

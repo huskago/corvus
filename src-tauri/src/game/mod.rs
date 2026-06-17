@@ -74,6 +74,8 @@ pub async fn launch(game_dir_name: &str, app: AppHandle, state: &AppState) -> Re
         *running = Some(game_dir_name.to_string());
     }
 
+    state.kill_requested.store(false, std::sync::atomic::Ordering::SeqCst);
+
     let result = async {
         let instances = instances::get_instances(state).await?;
         let instance = instances
@@ -182,6 +184,7 @@ async fn do_launch(
             local_config: &local_config,
         },
         app,
+        &state.kill_requested,
     )
     .await?;
 

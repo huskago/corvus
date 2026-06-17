@@ -42,6 +42,12 @@ pub fn HomePage() -> impl IntoView {
         ctx.instances.get().into_iter().find(|i| i.game_dir_name == id)
     };
 
+    let kill = move |_| {
+        spawn_local(async move {
+            tauri::invoke0::<()>("kill_instance").await.ok();
+        });
+    };
+
     let launch = move |_| {
         let Some(id) = ctx.selected_instance.get() else { return };
         ctx.is_launching.set(true);
@@ -200,13 +206,20 @@ pub fn HomePage() -> impl IntoView {
                                         </div>
                                     </Show>
 
-                                    <button
-                                        class="btn-play"
-                                        disabled=move || ctx.is_launching.get() || instance.maintenance
-                                        on:click=launch
-                                    >
-                                        {move || if ctx.is_launching.get() { "LAUNCHING…" } else { "PLAY" }}
-                                    </button>
+                                    <div class="play-buttons-row">
+                                        <button
+                                            class="btn-play"
+                                            disabled=move || ctx.is_launching.get() || instance.maintenance
+                                            on:click=launch
+                                        >
+                                            {move || if ctx.is_launching.get() { "LAUNCHING…" } else { "PLAY" }}
+                                        </button>
+                                        <Show when=move || ctx.is_launching.get()>
+                                            <button class="btn-kill" on:click=kill title="Stop">
+                                                "✕"
+                                            </button>
+                                        </Show>
+                                    </div>
 
                                     {if let Some(entry) = instance.changelog.first() {
                                         let version = entry.version.clone();
