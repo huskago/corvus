@@ -15,6 +15,10 @@ cp src-tauri/launcher.toml.example src-tauri/launcher.toml
 ```toml
 [branding]
 name = "MyLauncher"
+# Optional: Discord application ID for Rich Presence (shown while a player is in-game).
+# Create an app at https://discord.com/developers/applications and paste its ID here.
+# Leave commented out to disable Discord Rich Presence entirely.
+# discord_client_id = "123456789012345678"
 
 [server]
 instances_url = "https://example.com/instances.json"

@@ -3,6 +3,7 @@ use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 mod auth;
 pub mod build_config;
 pub mod config;
+mod discord;
 pub mod game;
 mod history;
 pub mod instances;

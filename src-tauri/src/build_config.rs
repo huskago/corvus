@@ -12,6 +12,7 @@ pub struct BuildConfig {
 #[derive(Debug, Deserialize)]
 pub struct Branding {
     pub name: String,
+    pub discord_client_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
