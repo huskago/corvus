@@ -9,6 +9,8 @@ use crate::models::ModLoader;
 pub struct LoaderResult {
     pub main_class: Option<String>,
     pub extra_jars: Vec<PathBuf>,
+    pub extra_jvm_args: Vec<String>,
+    pub extra_game_args: Vec<String>,
 }
 
 pub async fn prepare(
@@ -24,6 +26,8 @@ pub async fn prepare(
         ModLoader::Vanilla => Ok(LoaderResult {
             main_class: None,
             extra_jars: vec![],
+            extra_jvm_args: vec![],
+            extra_game_args: vec![],
         }),
         ModLoader::Fabric => {
             fabric_quilt(
@@ -148,6 +152,8 @@ async fn fabric_quilt(
     Ok(LoaderResult {
         main_class: Some(profile.main_class),
         extra_jars,
+        extra_jvm_args: vec![],
+        extra_game_args: vec![],
     })
 }
 
@@ -218,6 +224,13 @@ async fn forge(
         format!("forge-{mc_version}-{loader_version}-installer.jar")
     };
 
+    // Skip the installer if already installed (version JSON exists from a previous run)
+    if let Some(existing_json) =
+        find_installed_version_json(instance_dir, mc_version, is_neoforge).await
+    {
+        return parse_installed_version(instance_dir, mc_version, &existing_json);
+    }
+
     let installer_path = instance_dir.join(&installer_name);
 
     if !installer_path.exists() {
@@ -231,19 +244,28 @@ async fn forge(
         download_no_verify(client, &installer_url, &installer_path).await?;
     }
 
+    let profiles_path = instance_dir.join("launcher_profiles.json");
+    if !profiles_path.exists() {
+        let stub = r#"{"profiles":{},"selectedProfile":"(Default)","clientToken":"corvus","launcherVersion":{"name":"2.0","format":21}}"#;
+        tokio::fs::write(&profiles_path, stub)
+            .await
+            .map_err(|e| format!("Failed to create launcher_profiles.json: {e}"))?;
+    }
+
     emit_status(
         app,
         "Running the installer (this may take a few minutes)...",
     );
 
-    let output = tokio::process::Command::new(java_path)
-        .arg("-jar")
+    let mut cmd = tokio::process::Command::new(java_path);
+    cmd.arg("-jar")
         .arg(&installer_path)
         .arg("--installClient")
         .arg(instance_dir)
-        .current_dir(instance_dir)
-        .output()
-        .await
+        .current_dir(instance_dir);
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    let output = cmd.output().await
         .map_err(|e| format!("Installer launch failed: {e}"))?;
 
     if !output.status.success() {
@@ -265,7 +287,7 @@ async fn forge(
         .await
         .ok_or_else(|| "JSON version not found after installation".to_string())?;
 
-    parse_installed_version(instance_dir, &version_json)
+    parse_installed_version(instance_dir, mc_version, &version_json)
 }
 
 async fn find_installed_version_json(
@@ -293,6 +315,7 @@ async fn find_installed_version_json(
 
 fn parse_installed_version(
     instance_dir: &Path,
+    mc_version: &str,
     json_path: &PathBuf,
 ) -> Result<LoaderResult, String> {
     let content =
@@ -304,6 +327,9 @@ fn parse_installed_version(
     let main_class = json["mainClass"].as_str().map(String::from);
 
     let libs_dir = instance_dir.join("libraries");
+    let lib_dir_str = libs_dir.to_str().unwrap_or("").to_string();
+    let cp_sep = if cfg!(target_os = "windows") { ";" } else { ":" };
+
     let mut extra_jars = Vec::new();
 
     if let Some(libs) = json["libraries"].as_array() {
@@ -324,8 +350,36 @@ fn parse_installed_version(
         }
     }
 
+    let sub_loader_vars = |s: &str| -> String {
+        s.replace("${library_directory}", &lib_dir_str)
+            .replace("${classpath_separator}", cp_sep)
+            .replace("${version_name}", mc_version)
+    };
+
+    let mut extra_jvm_args = Vec::new();
+    let mut extra_game_args = Vec::new();
+
+    if let Some(args) = json["arguments"].as_object() {
+        if let Some(jvm) = args.get("jvm").and_then(|v| v.as_array()) {
+            for v in jvm {
+                if let Some(s) = v.as_str() {
+                    extra_jvm_args.push(sub_loader_vars(s));
+                }
+            }
+        }
+        if let Some(game) = args.get("game").and_then(|v| v.as_array()) {
+            for v in game {
+                if let Some(s) = v.as_str() {
+                    extra_game_args.push(sub_loader_vars(s));
+                }
+            }
+        }
+    }
+
     Ok(LoaderResult {
         main_class,
         extra_jars,
+        extra_jvm_args,
+        extra_game_args,
     })
 }

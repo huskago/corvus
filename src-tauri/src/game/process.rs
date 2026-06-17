@@ -14,6 +14,8 @@ pub struct LaunchParams<'a> {
     pub version_json: &'a vanilla::VersionJson,
     pub main_class_override: Option<&'a str>,
     pub extra_classpath: &'a [PathBuf],
+    pub extra_jvm_args: &'a [String],
+    pub extra_game_args: &'a [String],
     pub account_name: &'a str,
     pub account_uuid: &'a str,
     pub mc_access_token: &'a str,
@@ -46,6 +48,10 @@ pub async fn spawn_minecraft(params: LaunchParams<'_>, app: &AppHandle) -> Resul
     let mut cp_jars = vanilla::collect_library_paths(params.version_json, &libs_dir);
     cp_jars.extend_from_slice(params.extra_classpath);
     cp_jars.push(client_jar);
+
+    // Deduplicate while preserving order (vanilla first, loader overrides)
+    let mut seen = std::collections::HashSet::new();
+    cp_jars.retain(|p| seen.insert(p.clone()));
 
     let classpath = cp_jars
         .iter()
@@ -110,6 +116,7 @@ pub async fn spawn_minecraft(params: LaunchParams<'_>, app: &AppHandle) -> Resul
     }
 
     args.extend(build_jvm_args(params.version_json, &subs));
+    args.extend(params.extra_jvm_args.iter().cloned());
 
     if !params.local_config.jvm_args.is_empty() {
         args.extend(
@@ -129,6 +136,7 @@ pub async fn spawn_minecraft(params: LaunchParams<'_>, app: &AppHandle) -> Resul
     );
 
     args.extend(build_game_args(params.version_json, &subs));
+    args.extend(params.extra_game_args.iter().cloned());
 
     if params.local_config.resolution_width > 0 && params.local_config.resolution_height > 0 {
         args.extend([
@@ -155,6 +163,7 @@ pub async fn spawn_minecraft(params: LaunchParams<'_>, app: &AppHandle) -> Resul
 
     emit_status(app, format!("Launching Minecraft {}...", params.mc_version));
     emit_log(app, format!("Java: {}", params.java_path));
+    emit_log(app, format!("Args: {}", args.join(" ")));
 
     let mut command = tokio::process::Command::new(params.java_path);
     command
@@ -177,21 +186,41 @@ pub async fn spawn_minecraft(params: LaunchParams<'_>, app: &AppHandle) -> Resul
             }
         });
     }
+
+    let stderr_lines = std::sync::Arc::new(tokio::sync::Mutex::new(Vec::<String>::new()));
     if let Some(stderr) = child.stderr.take() {
         let app_cl = app.clone();
+        let lines_cl = stderr_lines.clone();
         tokio::spawn(async move {
             use tokio::io::AsyncBufReadExt;
             let mut lines = tokio::io::BufReader::new(stderr).lines();
             while let Ok(Some(line)) = lines.next_line().await {
-                emit_log(&app_cl, line);
+                emit_log(&app_cl, line.clone());
+                lines_cl.lock().await.push(line);
             }
         });
     }
 
-    child
+    let status = child
         .wait()
         .await
         .map_err(|e| format!("Java process timeout error: {e}"))?;
+
+    if !status.success() {
+        // Give the stderr reader a moment to drain remaining output
+        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+        let captured = stderr_lines.lock().await;
+        let last_lines: Vec<&str> = captured.iter().take(15).map(|s| s.as_str()).collect();
+        let code = status.code().unwrap_or(-1);
+        return Err(format!(
+            "Java exited with code {code}:\n{}",
+            if last_lines.is_empty() {
+                "(no output captured)".to_string()
+            } else {
+                last_lines.join("\n")
+            }
+        ));
+    }
 
     Ok(())
 }

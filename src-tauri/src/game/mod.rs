@@ -173,6 +173,8 @@ async fn do_launch(
             version_json: &version_json,
             main_class_override: loader_result.main_class.as_deref(),
             extra_classpath: &loader_result.extra_jars,
+            extra_jvm_args: &loader_result.extra_jvm_args,
+            extra_game_args: &loader_result.extra_game_args,
             account_name: &account_name,
             account_uuid: &account_uuid,
             mc_access_token: &mc_access_token,

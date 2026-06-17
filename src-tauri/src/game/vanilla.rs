@@ -163,31 +163,75 @@ pub async fn download_verified(
             .map_err(|e| format!("Folder creation: {e}"))?;
     }
 
-    let mut response = client
-        .get(url)
-        .send()
-        .await
-        .map_err(|e| format!("Network: {e}"))?;
+    const MAX_ATTEMPTS: u8 = 3;
+    let mut last_err = String::new();
 
-    if !response.status().is_success() {
-        return Err(format!("HTTP {} - {url}", response.status()));
-    }
+    for attempt in 1..=MAX_ATTEMPTS {
+        let response = client.get(url).send().await;
+        let mut response = match response {
+            Ok(r) if r.status().is_success() => r,
+            Ok(r) => {
+                last_err = format!("HTTP {} - {url}", r.status());
+                if attempt < MAX_ATTEMPTS {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(attempt as u64)).await;
+                }
+                continue;
+            }
+            Err(e) => {
+                last_err = format!("Network: {e}");
+                if attempt < MAX_ATTEMPTS {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(attempt as u64)).await;
+                }
+                continue;
+            }
+        };
 
-    let mut file = tokio::fs::File::create(dest)
-        .await
-        .map_err(|e| format!("File creation: {e}"))?;
+        let mut file = tokio::fs::File::create(dest)
+            .await
+            .map_err(|e| format!("File creation: {e}"))?;
 
-    while let Some(chunk) = response.chunk().await.map_err(|e| format!("{e}"))? {
-        file.write_all(&chunk).await.map_err(|e| format!("{e}"))?;
-    }
-    drop(file);
+        let mut write_err = None;
+        loop {
+            match response.chunk().await {
+                Ok(Some(chunk)) => {
+                    if let Err(e) = file.write_all(&chunk).await {
+                        write_err = Some(format!("{e}"));
+                        break;
+                    }
+                }
+                Ok(None) => break,
+                Err(e) => {
+                    write_err = Some(format!("{e}"));
+                    break;
+                }
+            }
+        }
+        drop(file);
 
-    if !expected_sha1.is_empty() && !file_is_valid(dest, expected_sha1).await {
+        if let Some(e) = write_err {
+            tokio::fs::remove_file(dest).await.ok();
+            last_err = format!("Write error: {e}");
+            if attempt < MAX_ATTEMPTS {
+                tokio::time::sleep(tokio::time::Duration::from_secs(attempt as u64)).await;
+            }
+            continue;
+        }
+
+        if expected_sha1.is_empty() || file_is_valid(dest, expected_sha1).await {
+            return Ok(());
+        }
+
+        let actual = sha1_of_file(dest).await.unwrap_or_default();
         tokio::fs::remove_file(dest).await.ok();
-        return Err(format!("SHA1 mismatch after download: {url}"));
+        last_err = format!(
+            "SHA1 mismatch (expected {expected_sha1}, got {actual}): {url}"
+        );
+        if attempt < MAX_ATTEMPTS {
+            tokio::time::sleep(tokio::time::Duration::from_secs(attempt as u64)).await;
+        }
     }
 
-    Ok(())
+    Err(last_err)
 }
 
 pub async fn ensure_vanilla_files(
