@@ -806,7 +806,7 @@ dependencies = [
 
 [[package]]
 name = "corvus"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "dirs 6.0.0",
  "discord-rich-presence",
@@ -830,7 +830,7 @@ dependencies = [
 
 [[package]]
 name = "corvus-ui"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",
