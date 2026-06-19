@@ -47,7 +47,7 @@ Generate a signing keypair:
 cargo tauri signer generate -w ~/.tauri/my-launcher.key
 ```
 
-Put the public key in `tauri.conf.json` and keep the private key for GitHub Actions.
+Put the public key in `tauri.conf.json`. Store the private key at `~/.tauri/my-launcher.key` for local builds (used by `build.ps1` / `build.sh`) and as a GitHub Actions secret for CI releases.
 
 ### 3. `src-tauri/icons/`
 
@@ -70,13 +70,13 @@ on:
 
 Then add these secrets to your GitHub repository (**Settings → Secrets and variables → Actions**):
 
-| Secret | Description |
-|--------|-------------|
-| `LAUNCHER_TOML` | Full content of your `launcher.toml` |
-| `TAURI_SIGNING_PRIVATE_KEY` | Content of your signing private key file |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Password for the private key (can be empty) |
-| `CORVUS_SERVER_URL` | *(Optional)* Your corvus-server URL — enables automatic upload of built binaries to your server |
-| `CORVUS_ADMIN_PASSWORD` | *(Optional)* corvus-server admin password, required if `CORVUS_SERVER_URL` is set |
+| Secret | Description                                                                                    |
+|--------|------------------------------------------------------------------------------------------------|
+| `LAUNCHER_TOML` | Full content of your `launcher.toml`                                                           |
+| `TAURI_SIGNING_PRIVATE_KEY` | Content of your signing private key file                                                       |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Password for the private key (can be empty)                                                    |
+| `CORVUS_SERVER_URL` | *(Optional)* Your corvus-server URL, enables automatic upload of built binaries to your server |
+| `CORVUS_ADMIN_PASSWORD` | *(Optional)* corvus-server admin password, required if `CORVUS_SERVER_URL` is set              |
 
 To publish a release:
 

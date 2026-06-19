@@ -11,6 +11,7 @@ A custom Minecraft launcher built with [Tauri v2](https://tauri.app) and [Leptos
 - World backups
 - Mod toggles, JVM arguments, and per-instance settings
 - Built-in console and launch progress tracking
+- Crash detection with direct access to crash reports
 - Auto-updater
 
 Want to use Corvus as a base for your own launcher? See [FORK.md](FORK.md).
@@ -36,11 +37,17 @@ cargo tauri dev
 
 ### Build
 
+For a signed release (required for the auto-updater), use the provided build scripts:
+
 ```sh
-cargo tauri build
+# Windows
+.\build.ps1
+
+# Linux / macOS
+./build.sh
 ```
 
-The installer is output to `src-tauri/target/release/bundle/`.
+These scripts read your private key from `~/.tauri/corvus.key` and prompt for the password. The installer and update artifacts are output to `src-tauri/target/release/bundle/`.
 
 ## Backend
 
