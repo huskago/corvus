@@ -152,12 +152,15 @@ fn setup_launch_listeners(ctx: AppCtx) {
 
     tauri::listen("launch:error", move |e| {
         #[derive(serde::Deserialize)]
+        #[serde(rename_all = "camelCase")]
         struct P {
             message: String,
+            game_dir_name: String,
         }
         ctx.is_launching.set(false);
         if let Ok(p) = serde_wasm_bindgen::from_value::<P>(e) {
             ctx.launch_status.set(format!("Error: {}", p.message));
+            ctx.crash_game_dir.set(Some(p.game_dir_name));
         }
     });
 }

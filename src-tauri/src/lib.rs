@@ -234,11 +234,25 @@ async fn launch_instance(
 
     tauri::async_runtime::spawn(async move {
         if let Err(e) = game::launch(&game_dir_name, app.clone(), &state_clone).await {
-            game::emit_error(&app, e);
+            game::emit_error(&app, &game_dir_name, e);
         }
     });
 
     Ok(())
+}
+
+#[tauri::command]
+async fn open_crash_reports(
+    game_dir_name: String,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let dir = config::instance_dir(&game_dir_name).join("crash-reports");
+    let _ = std::fs::create_dir_all(&dir);
+    app_handle
+        .opener()
+        .open_path(dir.to_str().unwrap_or(""), None::<&str>)
+        .map_err(|e| e.to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -262,6 +276,7 @@ pub fn run() {
             download_java,
             launch_instance,
             kill_instance,
+            open_crash_reports,
             get_play_history,
             get_accounts,
             get_active_account,

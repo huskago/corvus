@@ -618,6 +618,26 @@ body {
     word-break: break-word;
 }
 
+.btn-crash-report {
+    margin-top: 6px;
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--danger);
+    background: transparent;
+    border: 1px solid rgba(231, 76, 60, 0.35);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    letter-spacing: 0.03em;
+}
+
+.btn-crash-report:hover {
+    background: rgba(231, 76, 60, 0.1);
+    border-color: rgba(231, 76, 60, 0.6);
+}
+
 .play-progress-track {
     height: 4px;
     background: var(--track-bg);

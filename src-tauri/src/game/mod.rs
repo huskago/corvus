@@ -30,6 +30,7 @@ pub struct LogPayload {
 #[derive(serde::Serialize, Clone)]
 pub struct ErrorPayload {
     pub message: String,
+    pub game_dir_name: String,
 }
 
 pub fn emit_status(app: &AppHandle, message: impl Into<String>) {
@@ -53,11 +54,12 @@ pub fn emit_done(app: &AppHandle) {
     let _ = app.emit("launch:done", ());
 }
 
-pub fn emit_error(app: &AppHandle, message: impl Into<String>) {
+pub fn emit_error(app: &AppHandle, game_dir_name: impl Into<String>, message: impl Into<String>) {
     let _ = app.emit(
         "launch:error",
         ErrorPayload {
             message: message.into(),
+            game_dir_name: game_dir_name.into(),
         },
     );
 }

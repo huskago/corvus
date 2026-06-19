@@ -169,6 +169,8 @@ pub async fn spawn_minecraft(
     emit_log(app, format!("Java: {}", params.java_path));
     emit_log(app, format!("Args: {}", args.join(" ")));
 
+    let launch_time = std::time::SystemTime::now();
+
     let mut command = tokio::process::Command::new(params.java_path);
     command
         .args(&args)
@@ -215,21 +217,38 @@ pub async fn spawn_minecraft(
         }
         match child.try_wait().map_err(|e| format!("Java process error: {e}"))? {
             Some(status) => {
+                let code = status.code().unwrap_or(-1);
+                emit_log(app, format!("[corvus] Java exited with code {code}"));
+                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
                 if !status.success() {
-                    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
                     let captured = stderr_lines.lock().await;
-                    let last_lines: Vec<&str> =
-                        captured.iter().take(15).map(|s| s.as_str()).collect();
-                    let code = status.code().unwrap_or(-1);
-                    return Err(format!(
-                        "Java exited with code {code}:\n{}",
-                        if last_lines.is_empty() {
-                            "(no output captured)".to_string()
-                        } else {
-                            last_lines.join("\n")
-                        }
-                    ));
+                    let all_output = captured.join("\n");
+                    emit_log(app, format!("[corvus] stderr ({} lines), contains OutOfMemoryError: {}", captured.len(), all_output.contains("OutOfMemoryError")));
+
+                    let message = if all_output.contains("OutOfMemoryError") {
+                        "Out of memory, allocate more RAM in the instance settings (Max RAM).".to_string()
+                    } else if all_output.contains("UnsatisfiedLinkError") {
+                        "Missing native library, try relaunching, if it persists, reinstall the instance.".to_string()
+                    } else if all_output.contains("Could not find or load main class") {
+                        "Corrupted installation, the main class is missing, try reinstalling the instance.".to_string()
+                    } else {
+                        format!("Minecraft crashed (exit code {code}).")
+                    };
+
+                    return Err(message);
                 }
+
+                // Some crashes exit with code 0 (e.g. OOM caught by Minecraft's crash handler).
+                // Detect them by checking for crash reports written after launch.
+                let crash_dir = params.instance_dir.join("crash-reports");
+                emit_log(app, format!("[corvus] Exit code 0, checking crash-reports in: {}", crash_dir.display()));
+                if let Some(msg) = check_crash_report(params.instance_dir, launch_time).await {
+                    emit_log(app, "[corvus] Crash report found after launch, reporting as crash".to_string());
+                    return Err(msg);
+                }
+                emit_log(app, "[corvus] No crash report found, clean exit".to_string());
+
                 break;
             }
             None => tokio::time::sleep(tokio::time::Duration::from_millis(100)).await,
@@ -237,6 +256,22 @@ pub async fn spawn_minecraft(
     }
 
     Ok(())
+}
+
+async fn check_crash_report(
+    instance_dir: &Path,
+    since: std::time::SystemTime,
+) -> Option<String> {
+    let crash_dir = instance_dir.join("crash-reports");
+    let mut entries = tokio::fs::read_dir(&crash_dir).await.ok()?;
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let Ok(meta) = entry.metadata().await else { continue };
+        let Ok(modified) = meta.modified() else { continue };
+        if modified >= since {
+            return Some("Minecraft crashed, check the crash report for details.".to_string());
+        }
+    }
+    None
 }
 
 fn sub(s: &str, subs: &HashMap<String, String>) -> String {

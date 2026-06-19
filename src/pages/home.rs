@@ -57,6 +57,7 @@ pub fn HomePage() -> impl IntoView {
         ctx.launch_files_total.set(0);
         ctx.launch_bytes_done.set(0);
         ctx.launch_speed_bps.set(0);
+        ctx.crash_game_dir.set(None);
         ctx.console_lines.update(|v| v.clear());
         spawn_local(async move {
             #[derive(serde::Serialize)]
@@ -174,8 +175,29 @@ pub fn HomePage() -> impl IntoView {
                                         || s.contains("failed")
                                     }>
                                         <div class="play-error-text">
-                                            "⚠ " {move || ctx.launch_status.get()}
+                                            "⚠ "
+                                            {move || {
+                                                let s = ctx.launch_status.get();
+                                                s.strip_prefix("Error: ").unwrap_or(&s).to_string()
+                                            }}
                                         </div>
+                                        <Show when=move || ctx.crash_game_dir.get().is_some()>
+                                            <button
+                                                class="btn-crash-report"
+                                                on:click=move |_| {
+                                                    if let Some(dir) = ctx.crash_game_dir.get() {
+                                                        spawn_local(async move {
+                                                            #[derive(serde::Serialize)]
+                                                            #[serde(rename_all = "camelCase")]
+                                                            struct Args { game_dir_name: String }
+                                                            tauri::invoke::<(), _>("open_crash_reports", &Args { game_dir_name: dir }).await.ok();
+                                                        });
+                                                    }
+                                                }
+                                            >
+                                                "Open crash report"
+                                            </button>
+                                        </Show>
                                     </Show>
 
                                     <Show when=move || ctx.is_launching.get()>
